@@ -35,3 +35,9 @@
   font-weight: 500;
   white-space: nowrap;
 }
+
+.logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}

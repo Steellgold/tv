@@ -1,14 +1,14 @@
 import { HdmiPort } from "lucide-preact";
 
 import { useStore } from "../../../shared/hooks/useStore";
-import { isHdmi, SHORTCUTS } from "../../presentation/shortcuts";
+import { isHdmi, resolveShortcutApp, SHORTCUTS } from "../../presentation/shortcuts";
 import type { HomeEnvironment } from "../../types";
 import { ShortcutTile } from "../ShortcutTile/ShortcutTile";
 
 import styles from "./ShortcutRow.module.css";
 
 export const ShortcutRow = ({ env }: { env: HomeEnvironment }) => {
-  const { inputs } = useStore(env.inventory);
+  const { apps, inputs } = useStore(env.inventory);
   return (
     <div class={styles.row} data-shortcut-row role="group">
       {SHORTCUTS.map((shortcut) => (
@@ -18,6 +18,7 @@ export const ShortcutRow = ({ env }: { env: HomeEnvironment }) => {
           controlKey={"shortcut:" + shortcut.key}
           label={shortcut.fallback.name}
           icon={shortcut.icon}
+          app={resolveShortcutApp(shortcut, apps)}
         />
       ))}
       {inputs.filter(isHdmi).map((source) => (
