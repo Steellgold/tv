@@ -26,7 +26,11 @@ export const ShortcutTile = ({
   const brand = app ? env.runtime.tiles.describe(app) : null;
   const installed = useImageSequence(app?.icon ? [app.icon] : [], true);
   const logo = brand?.logoPath ? (
-    <AppLogoIcon class={styles.logo} path={brand.logoPath} colour={brand.logoColour} />
+    <AppLogoIcon
+      class={styles.logo}
+      path={brand.logoPath}
+      colour={/^#(f{3}|f{6})$/i.test(brand.logoColour) ? "var(--home-fg)" : brand.logoColour}
+    />
   ) : null;
   const image =
     !logo && installed.src ? (

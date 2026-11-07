@@ -10,9 +10,11 @@ export interface Inventory {
   readonly inputs: readonly InputSource[];
   readonly ready: boolean;
 }
+export type ThemeMode = "auto" | "dark" | "light";
 export interface HomeState {
   readonly active: boolean;
   readonly selected: string;
+  readonly theme: ThemeMode;
 }
 export interface HomeEnvironment {
   activate(key: string): void;

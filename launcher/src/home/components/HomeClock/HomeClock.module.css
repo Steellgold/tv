@@ -1,10 +1,20 @@
+.block {
+  text-align: center;
+}
+
 .clock {
   display: block;
-  color: #fff;
-  font-size: 260px;
+  font-size: 240px;
   font-weight: 300;
   line-height: 1;
   letter-spacing: 4px;
-  text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+.date {
+  margin-top: 16px;
+  font-size: 44px;
+  font-weight: 400;
+  opacity: 0.8;
+  text-transform: capitalize;
 }

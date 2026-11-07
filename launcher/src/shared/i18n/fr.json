@@ -261,5 +261,8 @@
   "wallpaper.firstColour": "Couleur 1",
   "wallpaper.secondColour": "Couleur 2",
   "wallpaper.direction": "Direction",
-  "wallpaper.gradientHint": "OK sélectionne une couleur. Haut/Bas : choisir un réglage. Gauche/Droite : ajuster. Maintenir pour accélérer."
+  "wallpaper.gradientHint": "OK sélectionne une couleur. Haut/Bas : choisir un réglage. Gauche/Droite : ajuster. Maintenir pour accélérer.",
+  "home.theme.auto": "Thème : automatique",
+  "home.theme.dark": "Thème : sombre",
+  "home.theme.light": "Thème : clair"
 }

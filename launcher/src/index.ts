@@ -9,6 +9,7 @@ import { mountBackgrounds } from "./backgrounds/mountBackgrounds";
 import type { SettingsService } from "./contracts/preferences";
 import { mountFireplace } from "./fireplace/mountFireplace";
 import { mountHome } from "./home/index";
+import { DEFAULT_WEATHER_LOCATION } from "./home/presentation/location";
 import { defaultTemperatureUnit } from "./platform/tizen/defaultTemperatureUnit";
 import { createLauncherUpdates } from "./services/createLauncherUpdates";
 import { createSettingsService } from "./services/createSettingsService";
@@ -47,6 +48,9 @@ const settings =
 runtime.settings = settings;
 if (!hotData?.preferences) {
   settings.load();
+  if (!settings.getSnapshot().weatherLocation) {
+    settings.update({ weatherLocation: DEFAULT_WEATHER_LOCATION });
+  }
 }
 const weather = window.Weather;
 const backgrounds = mountBackgrounds(

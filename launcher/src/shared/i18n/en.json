@@ -261,5 +261,8 @@
   "wallpaper.firstColour": "First colour",
   "wallpaper.secondColour": "Second colour",
   "wallpaper.direction": "Direction",
-  "wallpaper.gradientHint": "OK selects a colour. Up/Down: choose a control. Left/Right: adjust. Hold to adjust faster."
+  "wallpaper.gradientHint": "OK selects a colour. Up/Down: choose a control. Left/Right: adjust. Hold to adjust faster.",
+  "home.theme.auto": "Theme: automatic",
+  "home.theme.dark": "Theme: dark",
+  "home.theme.light": "Theme: light"
 }

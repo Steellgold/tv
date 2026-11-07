@@ -261,5 +261,8 @@
   "wallpaper.firstColour": "Первый цвет",
   "wallpaper.secondColour": "Второй цвет",
   "wallpaper.direction": "Направление",
-  "wallpaper.gradientHint": "OK выбирает цвет. Вверх/Вниз: выбрать параметр. Влево/Вправо: изменить. Удерживайте для ускорения."
+  "wallpaper.gradientHint": "OK выбирает цвет. Вверх/Вниз: выбрать параметр. Влево/Вправо: изменить. Удерживайте для ускорения.",
+  "home.theme.auto": "Тема: авто",
+  "home.theme.dark": "Тема: тёмная",
+  "home.theme.light": "Тема: светлая"
 }

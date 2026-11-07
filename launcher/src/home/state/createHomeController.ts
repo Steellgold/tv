@@ -1,9 +1,29 @@
 import { focusControl } from "../../shared/navigation/focusControl";
 import { createStore } from "../../shared/state/createStore";
 import { isHdmi, resolveShortcutApp, SHORTCUTS } from "../presentation/shortcuts";
-import type { HomeEnvironment, HomeState } from "../types";
+import type { HomeEnvironment, HomeState, ThemeMode } from "../types";
 
 const GEAR = "gear";
+const THEME = "theme";
+const THEME_STORAGE_KEY = "aerotizen.home.theme";
+// One press cycles automatic, dark, light and back to automatic.
+const NEXT_THEME: Record<ThemeMode, ThemeMode> = { auto: "dark", dark: "light", light: "auto" };
+
+const readTheme = (): ThemeMode => {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    return saved === "dark" || saved === "light" ? saved : "auto";
+  } catch {
+    return "auto";
+  }
+};
+const saveTheme = (theme: ThemeMode) => {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    /* the choice only lasts for this session */
+  }
+};
 
 const sourceKey = (source: { type: string; number?: number }) => "input:" + source.type + ":" + source.number;
 
@@ -14,7 +34,7 @@ export const createHomeController = (
   transaction: (action: () => void) => void,
 ) => {
   const { runtime, inventory, nodes } = env;
-  const state = createStore<HomeState>({ active: true, selected: "" });
+  const state = createStore<HomeState>({ active: true, selected: "", theme: readTheme() });
   let enterDown = false;
   const update = (patch: Partial<HomeState>) =>
     transaction(() => {
@@ -23,9 +43,9 @@ export const createHomeController = (
         state.set({ ...before, ...patch });
       }
     });
-  // Row 0 is the settings gear; row 1 holds the shortcuts followed by the HDMI inputs.
+  // Row 0 holds the theme switch and the settings gear; row 1 holds the shortcuts followed by the HDMI inputs.
   const rows = (): readonly (readonly string[])[] => [
-    [GEAR],
+    [THEME, GEAR],
     [
       ...SHORTCUTS.map((shortcut) => "shortcut:" + shortcut.key),
       ...inventory.getSnapshot().inputs.filter(isHdmi).map(sourceKey),
@@ -50,7 +70,11 @@ export const createHomeController = (
     focus();
   };
   const activate = (key: string) => {
-    if (key === GEAR) {
+    if (key === THEME) {
+      const theme = NEXT_THEME[state.getSnapshot().theme];
+      saveTheme(theme);
+      update({ theme });
+    } else if (key === GEAR) {
       runtime.settingsUi?.open();
     } else if (key.startsWith("shortcut:")) {
       const shortcut = SHORTCUTS.find((item) => item.key === key.slice(9));
