@@ -4,6 +4,7 @@ import { flushSync } from "preact/compat";
 import type { SettingsStore } from "../contracts/preferences";
 import type { StatusStores } from "../contracts/status";
 import type { LauncherRuntime } from "../platform/tizen/launcherRuntime";
+import { createUsbStore } from "../platform/tizen/usbStorage";
 import type { Translations } from "../shared/i18n/createTranslations";
 import { TranslationContext } from "../shared/i18n/useTranslation";
 
@@ -19,8 +20,9 @@ export const mountHome = (
   translations: Translations,
 ) => {
   const inventory = createHomeInventory(runtime, settings, flushSync);
+  const usb = createUsbStore(flushSync);
   const environment = createHomeController(
-    { runtime, settings, inventory, status, rows: createRef<HTMLElement>(), nodes: new Map() },
+    { runtime, settings, inventory, status, usb: usb.store, rows: createRef<HTMLElement>(), nodes: new Map() },
     flushSync,
   );
   const refresh = () => {
@@ -32,6 +34,7 @@ export const mountHome = (
     environment.bridge.blur();
     render(null, mount);
     inventory.dispose();
+    usb.dispose();
   };
   try {
     render(

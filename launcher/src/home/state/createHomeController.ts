@@ -1,6 +1,6 @@
 import { focusControl } from "../../shared/navigation/focusControl";
 import { createStore } from "../../shared/state/createStore";
-import { isHdmi, resolveShortcutApp, SHORTCUTS } from "../presentation/shortcuts";
+import { isHdmi, resolveShortcutApp, resolveUsbApp, SHORTCUTS } from "../presentation/shortcuts";
 import type { HomeEnvironment, HomeState, ThemeMode } from "../types";
 
 const GEAR = "gear";
@@ -25,6 +25,7 @@ const saveTheme = (theme: ThemeMode) => {
   }
 };
 
+const USB_PREFIX = "usb:";
 const sourceKey = (source: { type: string; number?: number }) => "input:" + source.type + ":" + source.number;
 
 // Remote transactions publish state synchronously; Preact owns every rendered node.
@@ -33,7 +34,7 @@ export const createHomeController = (
   env: Omit<HomeEnvironment, "bridge" | "state" | "select" | "activate">,
   transaction: (action: () => void) => void,
 ) => {
-  const { runtime, inventory, nodes } = env;
+  const { runtime, inventory, nodes, usb } = env;
   const state = createStore<HomeState>({ active: true, selected: "", theme: readTheme() });
   let enterDown = false;
   const update = (patch: Partial<HomeState>) =>
@@ -49,6 +50,7 @@ export const createHomeController = (
     [
       ...SHORTCUTS.map((shortcut) => "shortcut:" + shortcut.key),
       ...inventory.getSnapshot().inputs.filter(isHdmi).map(sourceKey),
+      ...usb.getSnapshot().map((drive) => USB_PREFIX + drive.id),
     ],
   ];
   const focus = () => {
@@ -80,6 +82,13 @@ export const createHomeController = (
       const shortcut = SHORTCUTS.find((item) => item.key === key.slice(9));
       if (shortcut) {
         runtime.apps.launch(resolveShortcutApp(shortcut, inventory.getSnapshot().apps));
+      }
+    } else if (key.startsWith(USB_PREFIX)) {
+      const player = resolveUsbApp(inventory.getSnapshot().apps);
+      if (player) {
+        runtime.apps.launch(player);
+      } else {
+        runtime.toast(runtime.translate("apps.openFailed", { name: runtime.translate("home.usb") }));
       }
     } else {
       const source = inventory.getSnapshot().inputs.find((item) => sourceKey(item) === key);

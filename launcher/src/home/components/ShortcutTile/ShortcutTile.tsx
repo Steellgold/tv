@@ -15,16 +15,18 @@ export const ShortcutTile = ({
   controlKey,
   label,
   icon,
+  image,
   app,
 }: {
   env: HomeEnvironment;
   controlKey: string;
   label: string;
   icon: LucideIcon;
+  image?: string;
   app?: InstalledApp;
 }) => {
   const brand = app ? env.runtime.tiles.describe(app) : null;
-  const installed = useImageSequence(app?.icon ? [app.icon] : [], true);
+  const installed = useImageSequence([...(image ? [image] : []), ...(app?.icon ? [app.icon] : [])], true);
   const logo = brand?.logoPath ? (
     <AppLogoIcon
       class={styles.logo}
@@ -32,7 +34,7 @@ export const ShortcutTile = ({
       colour={/^#(f{3}|f{6})$/i.test(brand.logoColour) ? "var(--home-fg)" : brand.logoColour}
     />
   ) : null;
-  const image =
+  const picture =
     !logo && installed.src ? (
       <img
         key={installed.src}
@@ -48,7 +50,7 @@ export const ShortcutTile = ({
   return (
     <HomeControl env={env} controlKey={controlKey} className={styles.tile} title={label}>
       {logo}
-      {image}
+      {picture}
       {generic ? <Icon icon={icon} /> : null}
       <span class={styles.label}>{label}</span>
     </HomeControl>

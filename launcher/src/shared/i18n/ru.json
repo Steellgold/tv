@@ -263,6 +263,7 @@
   "wallpaper.direction": "Направление",
   "wallpaper.gradientHint": "OK выбирает цвет. Вверх/Вниз: выбрать параметр. Влево/Вправо: изменить. Удерживайте для ускорения.",
   "home.theme.auto": "Тема: авто",
+  "home.usb": "USB",
   "home.theme.dark": "Тема: тёмная",
   "home.theme.light": "Тема: светлая"
 }

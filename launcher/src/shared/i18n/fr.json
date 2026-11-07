@@ -263,6 +263,7 @@
   "wallpaper.direction": "Direction",
   "wallpaper.gradientHint": "OK sélectionne une couleur. Haut/Bas : choisir un réglage. Gauche/Droite : ajuster. Maintenir pour accélérer.",
   "home.theme.auto": "Thème : automatique",
+  "home.usb": "USB",
   "home.theme.dark": "Thème : sombre",
   "home.theme.light": "Thème : clair"
 }

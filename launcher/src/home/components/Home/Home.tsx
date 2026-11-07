@@ -27,11 +27,12 @@ export const Home = ({ env }: { env: HomeEnvironment }) => {
   const { t } = useTranslation();
   const { apps, inputs, ready } = useStore(env.inventory);
   const { active, theme } = useStore(env.state);
+  const drives = useStore(env.usb);
   const timestamp = useStore(env.status.time);
   const resolved = resolveTheme(theme, timestamp);
   useLayoutEffect(() => {
     env.bridge.focus();
-  }, [env, apps, inputs, ready]);
+  }, [env, apps, inputs, ready, drives]);
   return (
     <div class={styles.home} data-home data-home-content data-theme={resolved} aria-hidden={!active}>
       <div class={styles.corner}>

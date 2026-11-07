@@ -4,6 +4,7 @@ import type { HomeBridge, InputSource, InstalledApp } from "../contracts/launche
 import type { SettingsStore } from "../contracts/preferences";
 import type { StatusStores } from "../contracts/status";
 import type { LauncherRuntime } from "../platform/tizen/launcherRuntime";
+import type { UsbDrive } from "../platform/tizen/usbStorage";
 import type { MutableStore, Store } from "../shared/state/createStore";
 export interface Inventory {
   readonly apps: readonly InstalledApp[];
@@ -27,4 +28,5 @@ export interface HomeEnvironment {
   settings: SettingsStore;
   state: MutableStore<HomeState>;
   status: StatusStores;
+  usb: Store<readonly UsbDrive[]>;
 }

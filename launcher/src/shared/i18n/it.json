@@ -263,6 +263,7 @@
   "wallpaper.direction": "Direzione",
   "wallpaper.gradientHint": "OK seleziona un colore. Su/Giù: scegli un controllo. Sinistra/Destra: regola. Tieni premuto per accelerare.",
   "home.theme.auto": "Tema: automatico",
+  "home.usb": "USB",
   "home.theme.dark": "Tema: scuro",
   "home.theme.light": "Tema: chiaro"
 }

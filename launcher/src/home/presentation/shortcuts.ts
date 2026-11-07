@@ -6,6 +6,8 @@ import type { InputSource, InstalledApp } from "../../contracts/launcher";
 export interface Shortcut {
   readonly fallback: InstalledApp;
   readonly icon: LucideIcon;
+  // Optional picture shipped with the launcher; used before the TV's own app icon.
+  readonly image?: string;
   readonly key: string;
   readonly match: RegExp;
 }
@@ -28,8 +30,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
   {
     key: "internet",
     icon: Globe,
+    image: "assets/shortcuts/internet.png",
     match: /^(samsung )?(internet|browser)$/i,
-    fallback: { id: "org.tizen.browser", name: "Samsung Internet" },
+    fallback: { id: "org.tizen.browser", name: "Internet" },
   },
 ];
 
@@ -38,3 +41,9 @@ export const resolveShortcutApp = (shortcut: Shortcut, apps: readonly InstalledA
 
 // The row lists external inputs only; Live TV is not a quick access.
 export const isHdmi = (source: InputSource) => source.type !== "TV";
+
+// Samsung's file player opens the USB drive. It is found by name among the installed apps,
+// because its ID differs between TV models.
+const USB_PLAYER = /^(multim[eé]dia|media|lecteur|usb|my files|mes fichiers)/i;
+export const resolveUsbApp = (apps: readonly InstalledApp[]): InstalledApp | undefined =>
+  apps.find((app) => USB_PLAYER.test(app.name.trim()));
