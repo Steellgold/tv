@@ -103,6 +103,7 @@ const harness = () => {
 
 test("Home and Settings share the injected preference service", () => {
   const h = harness();
+  h.settings.update({ language: "en" });
   const app = createLauncherApp(h.runtime, h.platform, h.hosts, h.views, h.updates, h.settings);
   assert.equal(h.homeSettings, h.editorSettings);
   assert.equal(h.homeSettings, h.settings, "views use the canonical service without a second snapshot store");

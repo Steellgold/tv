@@ -19,7 +19,7 @@ export const DEFAULT_SETTINGS: SettingsDefaults = {
   weatherLocation: null,
   weatherShowLocation: true,
   dateFormat: "short",
-  language: "auto",
+  language: "fr",
   numerals: "latn",
   clockLayout: "classic",
   aeroClockStyle: "vertical",
