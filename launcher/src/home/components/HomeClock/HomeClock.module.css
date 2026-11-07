@@ -1,0 +1,10 @@
+.clock {
+  display: block;
+  color: #fff;
+  font-size: 260px;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: 4px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

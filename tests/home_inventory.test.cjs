@@ -6,8 +6,7 @@ const { createSettingsService } = loadTypeScript("launcher/src/services/createSe
 
 test("Home inventories publish stable immutable data and respond to preference changes", () => {
   const appListeners = new Set(),
-    inputListeners = new Set(),
-    feedListeners = new Set();
+    inputListeners = new Set();
   const subscribe = (listeners) => (listener) => {
     listeners.add(listener);
     return () => listeners.delete(listener);
@@ -33,13 +32,12 @@ test("Home inventories publish stable immutable data and respond to preference c
       },
       subscribe: subscribe(inputListeners),
     },
-    continueWatching: { items: [], subscribe: subscribe(feedListeners) },
   };
   const inventory = createHomeInventory(runtime, settings, (fn) => fn());
   const first = inventory.getSnapshot();
   let updates = 0;
   inventory.subscribe(() => updates++);
-  [...appListeners, ...inputListeners, ...feedListeners].forEach((fn) => fn());
+  [...appListeners, ...inputListeners].forEach((fn) => fn());
   assert.equal(inventory.getSnapshot(), first);
   assert.equal(updates, 0);
   runtime.apps.all[0].name = "Renamed";
@@ -56,13 +54,9 @@ test("Home inventories publish stable immutable data and respond to preference c
   runtime.apps.ready = true;
   [...appListeners].forEach((fn) => fn());
   assert.equal(inventory.getSnapshot().ready, true);
-  runtime.continueWatching.items.push({ key: "one", title: "Episode" });
-  [...feedListeners].forEach((fn) => fn());
-  assert.equal(inventory.getSnapshot().items[0].title, "Episode");
-  assert.equal(first.items.length, 0);
   const latest = inventory.getSnapshot();
   inventory.dispose();
-  assert.equal(appListeners.size + inputListeners.size + feedListeners.size, 0);
+  assert.equal(appListeners.size + inputListeners.size, 0);
   settings.update({ showLiveTv: true });
   assert.equal(inventory.getSnapshot(), latest);
   settings.dispose();

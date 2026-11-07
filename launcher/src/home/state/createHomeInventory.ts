@@ -5,7 +5,7 @@ import { snapshotList } from "../../shared/state/snapshotList";
 import type { Inventory } from "../types";
 
 export const createHomeInventory = (
-  runtime: Pick<LauncherRuntime, "apps" | "inputs" | "continueWatching">,
+  runtime: Pick<LauncherRuntime, "apps" | "inputs">,
   settings: SettingsStore,
   transaction: (action: () => void) => void,
 ) => {
@@ -15,22 +15,16 @@ export const createHomeInventory = (
       runtime.inputs.sources.filter((source) => runtime.inputs.isVisible(source)),
       previous?.inputs,
     );
-    const items = snapshotList(runtime.continueWatching.items, previous?.items);
     const ready = runtime.apps.ready;
-    return previous &&
-      apps === previous.apps &&
-      inputs === previous.inputs &&
-      items === previous.items &&
-      ready === previous.ready
+    return previous && apps === previous.apps && inputs === previous.inputs && ready === previous.ready
       ? previous
-      : Object.freeze({ apps, inputs, items, ready });
+      : Object.freeze({ apps, inputs, ready });
   };
   const store = createStore(read());
   const refresh = () => transaction(() => store.set(read(store.getSnapshot())));
   const unsubscribers = [
     runtime.apps.subscribe(refresh),
     runtime.inputs.subscribe(refresh),
-    runtime.continueWatching.subscribe(refresh),
     settings.subscribe(refresh),
   ];
   return {

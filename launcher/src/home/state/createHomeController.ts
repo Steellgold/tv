@@ -1,148 +1,21 @@
 import { focusControl } from "../../shared/navigation/focusControl";
 import { createStore } from "../../shared/state/createStore";
-import type { HomeEnvironment, HomeMenuChoice, HomeState, Page } from "../types";
+import { isHdmi, resolveShortcutApp, SHORTCUTS } from "../presentation/shortcuts";
+import type { HomeEnvironment, HomeState } from "../types";
 
-import { revealHorizontalItem } from "./horizontalScroll";
+const GEAR = "gear";
 
-const HEADER_KEYS = ["gear", "samsung-home-shortcut", "home-tab", "apps-tab"] as const;
-// Reserve 16px for the focus outline beyond the 112px top and 80px bottom fades.
-const TOP_SCROLL_CLEARANCE = 128;
-const BOTTOM_SCROLL_CLEARANCE = 96;
-const APPS_END_CLEARANCE = 16;
-const HOME_MENU_CHOICES = [
-  { action: "move", label: "home.move" },
-  { action: "remove", label: "home.removeFromHome" },
-] as const;
-const APP_MENU_CHOICES = {
-  add: { action: "add", label: "home.addToHome" },
-  remove: { action: "remove", label: "home.removeFromHome" },
-} as const;
-
-type Rows = readonly (readonly string[])[];
-
-const getSelectedKey = (rows: Rows, selected: string, started: boolean) => {
-  const first = rows[1]?.[0];
-  if (!started && first) {
-    return first;
-  }
-  if (rows.some((row) => row.includes(selected))) {
-    return selected;
-  }
-  return first || "home-tab";
-};
-
-const getScrollOffset = ({
-  selected,
-  rows,
-  previous,
-  top,
-  bottom,
-  origin,
-  limit,
-}: {
-  selected: string;
-  rows: Rows;
-  previous: number;
-  top: number;
-  bottom: number;
-  origin: number;
-  limit: number;
-}) => {
-  if (rows[0].includes(selected) || rows[1]?.includes(selected)) {
-    return 0;
-  }
-  if (bottom - previous > limit) {
-    return bottom - limit;
-  }
-  if (top - previous < origin + TOP_SCROLL_CLEARANCE) {
-    return Math.max(0, top - origin - TOP_SCROLL_CLEARANCE);
-  }
-  return previous;
-};
-
-const moveItem = (items: readonly string[], from: number, to: number, item: string) => {
-  const remaining = items.filter((_, index) => index !== from);
-  return [...remaining.slice(0, to), item, ...remaining.slice(to)];
-};
-
-const getVerticalColumn = ({
-  rows,
-  row,
-  target,
-  selected,
-  page,
-  nodes,
-  getViewport,
-}: {
-  rows: Rows;
-  row: number;
-  target: number;
-  selected: string;
-  page: Page;
-  nodes: ReadonlyMap<string, HTMLElement>;
-  getViewport(key: string): HTMLElement | null;
-}) => {
-  if (target === 0) {
-    return rows[0].indexOf(page === "home" ? "home-tab" : "apps-tab");
-  }
-  if (row === 0) {
-    return 0;
-  }
-  const column = row === 0 ? 0 : rows[row].indexOf(selected);
-  if (!getViewport(selected) && !getViewport(rows[target][0])) {
-    return column;
-  }
-  const from = nodes.get(selected)?.getBoundingClientRect();
-  if (!from) {
-    return column;
-  }
-  const bounds = getViewport(rows[target][0])?.getBoundingClientRect();
-  const nearest = rows[target].reduce(
-    (nearest, key, column) => {
-      const rect = nodes.get(key)?.getBoundingClientRect();
-      if (!rect || (bounds && (rect.right <= bounds.left || rect.left >= bounds.right))) {
-        return nearest;
-      }
-      const distance = Math.abs(rect.left + rect.right - from.left - from.right);
-      return distance < nearest.distance ? { column, distance } : nearest;
-    },
-    { column, distance: Infinity },
-  );
-  return nearest.column;
-};
+const sourceKey = (source: { type: string; number?: number }) => "input:" + source.type + ":" + source.number;
 
 // Remote transactions publish state synchronously; Preact owns every rendered node.
-// No app/service commands are reimplemented here.
+// App and input commands stay in the existing runtime services.
 export const createHomeController = (
-  env: Omit<
-    HomeEnvironment,
-    "bridge" | "state" | "select" | "activate" | "showPage" | "choose" | "dismiss" | "menuChoices"
-  >,
+  env: Omit<HomeEnvironment, "bridge" | "state" | "select" | "activate">,
   transaction: (action: () => void) => void,
 ) => {
-  const { runtime, settings, inventory, nodes } = env;
-  const state = createStore<HomeState>({
-    page: "home",
-    appsEndOffset: 0,
-    scroll: 0,
-    continueOffset: 0,
-    selected: "",
-    active: true,
-    appOffset: 0,
-    moving: null,
-    draft: null,
-    menu: null,
-  });
-  let timer: number | undefined;
+  const { runtime, inventory, nodes } = env;
+  const state = createStore<HomeState>({ active: true, selected: "" });
   let enterDown = false;
-  let started = false;
-  const cancelPress = () => {
-    if (timer !== undefined) {
-      window.clearTimeout(timer);
-    }
-    timer = undefined;
-    enterDown = false;
-  };
   const update = (patch: Partial<HomeState>) =>
     transaction(() => {
       const before = state.getSnapshot();
@@ -150,317 +23,86 @@ export const createHomeController = (
         state.set({ ...before, ...patch });
       }
     });
-  const homeIds = () => {
-    const saved =
-      state.getSnapshot().draft ||
-      (settings.getSnapshot().homeInitialized ? settings.getSnapshot().home : [runtime.config.FIREPLACE_ID]);
-    // Movement must address the same visible IDs as the grid, not stale saved apps.
-    return saved.filter(
-      (id) => id === runtime.config.FIREPLACE_ID || !inventory.getSnapshot().ready || runtime.apps.byId(id),
-    );
-  };
-  const ids = () =>
-    state.getSnapshot().page === "home" ? homeIds() : inventory.getSnapshot().apps.map((app) => app.id);
-  const scrollApps = () => state.getSnapshot().page === "home" && settings.getSnapshot().homeAppLayout === "scroll";
-  const getScroller = (key: string) => {
-    if (key.startsWith("continue:")) {
-      return {
-        track: env.continueItems.current,
-        viewport: env.continueViewport.current,
-        offset: "continueOffset",
-      } as const;
-    }
-    if (key.startsWith("app:") && scrollApps()) {
-      return { track: env.appItems.current, viewport: env.appViewport.current, offset: "appOffset" } as const;
-    }
-    return null;
-  };
-  const sourceKey = (source: { type: string; number?: number }) => "input:" + source.type + ":" + source.number;
-  const rows = (): readonly (readonly string[])[] => {
-    const columns = env.columns(settings.getSnapshot());
-    const all = ids();
-    const rowLength = scrollApps() ? Math.max(1, all.length) : columns;
-    const appRows = Array.from({ length: Math.ceil(all.length / rowLength) }, (_, index) =>
-      all.slice(index * rowLength, (index + 1) * rowLength).map((id) => "app:" + id),
-    );
-    const appLayout = [HEADER_KEYS, ...appRows];
-    if (state.getSnapshot().page !== "home") {
-      return all.length ? [...appLayout, ["back-to-top"]] : appLayout;
-    }
-    const { items, inputs } = inventory.getSnapshot();
-    const continueRows =
-      settings.getSnapshot().continueWatching && items.length ? [items.map((item) => "continue:" + item.key)] : [];
-    const inputRows = inputs.length ? [inputs.map(sourceKey)] : [];
-    return [...appLayout, ...continueRows, ...inputRows];
-  };
+  // Row 0 is the settings gear; row 1 holds the shortcuts followed by the HDMI inputs.
+  const rows = (): readonly (readonly string[])[] => [
+    [GEAR],
+    [
+      ...SHORTCUTS.map((shortcut) => "shortcut:" + shortcut.key),
+      ...inventory.getSnapshot().inputs.filter(isHdmi).map(sourceKey),
+    ],
+  ];
   const focus = () => {
     if (document.hidden || runtime.settingsUi?.isOpen()) {
       update({ active: false });
       return;
     }
-    const pending = state.getSnapshot();
-    if (pending.moving && !ids().includes(pending.moving)) {
-      update({ moving: null, draft: null });
-      runtime.hideToast();
-      cancelPress();
-    }
-    if (pending.menu && !ids().includes(pending.menu.id)) {
-      update({ menu: null });
-      cancelPress();
-    }
     const list = rows();
     const old = state.getSnapshot().selected;
-    const selected = getSelectedKey(list, old, started);
-    if (list[1]?.length) {
-      started = true;
-    }
-    if (old !== selected) {
-      cancelPress();
-    }
+    const selected = list.some((row) => row.includes(old)) ? old : list[1][0];
     update({ selected, active: true });
     const node = nodes.get(selected);
-    const main = env.rows.current;
-    if (!node || !main || runtime.settingsUi?.isOpen()) {
-      return;
+    if (node) {
+      focusControl(node);
     }
-    focusControl(node);
-    const scroller = getScroller(selected);
-    if (scroller?.track && scroller.viewport) {
-      const offset = revealHorizontalItem(
-        scroller.track,
-        node,
-        state.getSnapshot()[scroller.offset],
-        document.documentElement.dir === "rtl",
-      );
-      update({ [scroller.offset]: offset });
-    }
-    const mainTop = main.getBoundingClientRect().top;
-    const lastAppRow = pending.page === "apps" ? list[list.length - 2] : undefined;
-    const lastApp = lastAppRow && nodes.get(lastAppRow[0]);
-    const grid = lastApp?.parentElement;
-    // The grid edge stays fixed while the last app's focus scale animates.
-    const lastRowTop = lastApp && grid ? grid.getBoundingClientRect().bottom - lastApp.offsetHeight - mainTop : 0;
-    const appsEndOffset = Math.max(0, Math.round(lastRowTop - APPS_END_CLEARANCE));
-    if (selected === "back-to-top" || (pending.scroll === pending.appsEndOffset && lastAppRow?.includes(selected))) {
-      update({ appsEndOffset, scroll: appsEndOffset });
-      return;
-    }
-    const rect = node.getBoundingClientRect();
-    const viewportBounds = main.parentElement?.getBoundingClientRect();
-    const origin = viewportBounds?.top || 0;
-    const scroll = getScrollOffset({
-      selected,
-      rows: list,
-      previous: pending.scroll,
-      top: rect.top - mainTop + origin,
-      bottom: rect.bottom - mainTop + origin,
-      origin,
-      limit: (viewportBounds?.bottom || document.documentElement.clientHeight) - BOTTOM_SCROLL_CLEARANCE,
-    });
-    update({ appsEndOffset, scroll });
   };
   const select = (selected: string) => {
-    if (state.getSnapshot().selected !== selected) {
-      cancelPress();
-    }
     update({ selected });
     focus();
   };
-  const endMove = () => {
-    const draft = state.getSnapshot().draft;
-    if (draft) {
-      settings.update({ home: [...homeIds()] });
-    }
-    update({ moving: null, draft: null });
-    runtime.hideToast();
-  };
-  const dismiss = () => {
-    update({ menu: null });
-    focus();
-  };
-  const showPage = (page: Page) => {
-    cancelPress();
-    endMove();
-    update({ page, appsEndOffset: 0, scroll: 0, menu: null, selected: page === "home" ? "home-tab" : "apps-tab" });
-    focus();
-  };
   const activate = (key: string) => {
-    if (key === "gear") {
-      endMove();
+    if (key === GEAR) {
       runtime.settingsUi?.open();
-    } else if (key === "samsung-home-shortcut") {
-      if (runtime.homewatch.openSamsungHome) {
-        runtime.homewatch.openSamsungHome();
-      } else {
-        runtime.homewatch.useSamsungHome();
-      }
-    } else if (key === "home-tab" || key === "apps-tab") {
-      showPage(key === "home-tab" ? "home" : "apps");
-    } else if (key === "back-to-top") {
-      const first = inventory.getSnapshot().apps[0];
-      if (first) {
-        select("app:" + first.id);
-      }
-    } else if (key.startsWith("app:")) {
-      const id = key.slice(4);
-      const app = runtime.apps.byId(id);
-      if (id === runtime.config.FIREPLACE_ID) {
-        runtime.apps.playFireplace();
-      } else if (app) {
-        runtime.apps.launch(app);
-      }
-    } else if (key.startsWith("continue:")) {
-      // Commands need the service's live record, not an immutable view snapshot.
-      const item = runtime.continueWatching.items.find((item) => item.key === key.slice(9));
-      if (item) {
-        runtime.continueWatching.open(item);
+    } else if (key.startsWith("shortcut:")) {
+      const shortcut = SHORTCUTS.find((item) => item.key === key.slice(9));
+      if (shortcut) {
+        runtime.apps.launch(resolveShortcutApp(shortcut, inventory.getSnapshot().apps));
       }
     } else {
-      const source = inventory.getSnapshot().inputs.find((source) => sourceKey(source) === key);
+      const source = inventory.getSnapshot().inputs.find((item) => sourceKey(item) === key);
       if (source) {
         runtime.inputs.show(source);
       }
     }
   };
-  const menuChoices = (): readonly HomeMenuChoice[] => {
-    if (state.getSnapshot().page === "home") {
-      return HOME_MENU_CHOICES;
-    }
-    const selected = homeIds().includes(state.getSnapshot().menu?.id || "");
-    return [selected ? APP_MENU_CHOICES.remove : APP_MENU_CHOICES.add];
-  };
-  const choose = (index: number) => {
-    const menu = state.getSnapshot().menu;
-    const choice = menuChoices()[index];
-    if (!menu || !choice) {
-      return;
-    }
-    update({ menu: null });
-    if (choice.action === "move") {
-      update({ moving: menu.id, draft: [...homeIds()] });
-      env.showMoveInstructions();
-      return;
-    }
-    const before = ids();
-    const at = before.indexOf(menu.id);
-    const home = [...homeIds()];
-    settings.update({
-      home: choice.action === "add" ? [...home, menu.id] : home.filter((id) => id !== menu.id),
-    });
-    if (state.getSnapshot().page === "home") {
-      const after = ids();
-      const nextApp = after[Math.min(Math.max(at, 0), after.length - 1)];
-      const firstInput = inventory.getSnapshot().inputs[0];
-      const fallback = firstInput ? sourceKey(firstInput) : "home-tab";
-      update({ selected: nextApp ? "app:" + nextApp : fallback });
-    }
-    focus();
-  };
   const K = runtime.config.KEY;
   const keydown = (code: number, event: Pick<KeyboardEvent, "preventDefault">) =>
     transaction(() => {
-      const current = state.getSnapshot();
-      // Rows run right to left in RTL languages, so Left moves to the next item there.
-      const rtl = window.document?.documentElement.dir === "rtl";
-      const delta = code === K.UP || (code === K.LEFT && !rtl) || (code === K.RIGHT && rtl) ? -1 : 1;
       if (![K.LEFT, K.RIGHT, K.UP, K.DOWN, K.BACK, K.ESC, K.ENTER].includes(code)) {
         return;
       }
       event.preventDefault();
-      if (current.menu) {
-        if (code === K.BACK || code === K.ESC) {
-          dismiss();
-        } else if (code === K.ENTER) {
-          if (!enterDown) {
-            enterDown = true;
-            choose(current.menu.selected);
-          }
-        } else {
-          update({
-            menu: {
-              ...current.menu,
-              selected: Math.max(0, Math.min(menuChoices().length - 1, current.menu.selected + delta)),
-            },
-          });
-        }
-        return;
-      }
-      if (current.moving) {
-        if (code === K.ENTER || code === K.BACK || code === K.ESC) {
-          if (code !== K.ENTER || !enterDown) {
-            enterDown = code === K.ENTER;
-            endMove();
-          }
-          return;
-        }
-        if (scrollApps() && (code === K.UP || code === K.DOWN)) {
-          return;
-        }
-        const home = [...homeIds()];
-        const from = home.indexOf(current.moving);
-        const step = code === K.UP || code === K.DOWN ? env.columns(settings.getSnapshot()) : 1;
-        const to = Math.max(0, Math.min(home.length - 1, from + delta * step));
-        update({ draft: moveItem(home, from, to, current.moving) });
-        focus();
-        return;
-      }
       if (code === K.ENTER) {
-        if (enterDown) {
-          return;
-        }
         enterDown = true;
-        const selected = current.selected;
-        timer = window.setTimeout(() => {
-          timer = undefined;
-          if (enterDown && selected.startsWith("app:")) {
-            update({ menu: { id: selected.slice(4), selected: 0 } });
-          }
-        }, runtime.config.LONG_PRESS_MS);
-        return;
-      }
-      if (code === K.BACK || code === K.ESC) {
-        if (current.page !== "home") {
-          showPage("home");
-        }
         return;
       }
       const all = rows();
-      const row = all.findIndex((items) => items.includes(current.selected));
+      const current = state.getSnapshot().selected;
+      const row = all.findIndex((items) => items.includes(current));
       if (row < 0) {
         focus();
         return;
       }
-      const horizontal = code === K.LEFT || code === K.RIGHT;
-      const target = horizontal ? row : row + delta;
-      if (target < 0 || target >= all.length) {
+      if (code === K.UP || code === K.DOWN) {
+        const target = row + (code === K.UP ? -1 : 1);
+        if (target >= 0 && target < all.length) {
+          select(all[target][0]);
+        }
         return;
       }
-      const column = horizontal
-        ? all[row].indexOf(current.selected) + delta
-        : getVerticalColumn({
-            rows: all,
-            row,
-            target,
-            selected: current.selected,
-            page: current.page,
-            nodes,
-            getViewport: (key) => getScroller(key)?.viewport || null,
-          });
-      select(all[target][Math.max(0, Math.min(all[target].length - 1, column))]);
+      if (code === K.LEFT || code === K.RIGHT) {
+        // Rows run right to left in RTL languages, so Left moves to the next item there.
+        const rtl = window.document?.documentElement.dir === "rtl";
+        const delta = (code === K.LEFT) !== rtl ? -1 : 1;
+        const column = all[row].indexOf(current) + delta;
+        select(all[row][Math.max(0, Math.min(all[row].length - 1, column))]);
+      }
     });
   const keyup = (code: number) => {
-    if (code !== K.ENTER) {
+    if (code !== K.ENTER || !enterDown) {
       return;
     }
     enterDown = false;
-    if (timer === undefined) {
-      return;
-    }
-    window.clearTimeout(timer);
-    timer = undefined;
-    if (!state.getSnapshot().menu && !state.getSnapshot().moving) {
-      activate(state.getSnapshot().selected);
-    }
+    activate(state.getSnapshot().selected);
   };
   const bridge = {
     render: focus,
@@ -468,11 +110,11 @@ export const createHomeController = (
     refreshApps: focus,
     focus,
     blur() {
-      cancelPress();
-      update({ active: false, menu: null });
+      enterDown = false;
+      update({ active: false });
     },
     keydown,
     keyup,
   };
-  return { ...env, state, bridge, select, activate, showPage, choose, dismiss, menuChoices };
+  return { ...env, state, bridge, select, activate };
 };

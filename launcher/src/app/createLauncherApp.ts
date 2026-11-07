@@ -21,7 +21,6 @@ export interface LauncherViews {
     mount: HTMLElement,
     status: StatusStores,
     translations: Translations,
-    updates: LauncherUpdateNotice,
   ): MountedView<HomeBridge>;
   settings(
     runtime: LauncherRuntime,
@@ -114,7 +113,7 @@ export const createLauncherApp = (
   };
   try {
     runtime.translate = translate;
-    home = views.home(runtime, settings, hosts.home, status, translations, updates);
+    home = views.home(runtime, settings, hosts.home, status, translations);
     runtime.homeScreen = home.bridge;
     editor = views.settings(runtime, platform, settings, hosts.settings, translations, updates);
     runtime.settingsUi = editor.bridge;

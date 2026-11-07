@@ -72,3 +72,12 @@ body {
   font-family: "Roboto", "SamsungOne", "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Minimal Home: plain black canvas. Backgrounds still show while Settings previews them. */
+body:not(.previewing):not(.tv) {
+  background: #000;
+}
+body:not(.previewing) [data-background-host],
+body:not(.previewing) #weather-photo-root {
+  display: none;
+}

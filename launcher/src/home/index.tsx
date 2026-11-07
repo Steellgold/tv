@@ -3,7 +3,6 @@ import { flushSync } from "preact/compat";
 
 import type { SettingsStore } from "../contracts/preferences";
 import type { StatusStores } from "../contracts/status";
-import type { LauncherUpdateNotice } from "../contracts/updates";
 import type { LauncherRuntime } from "../platform/tizen/launcherRuntime";
 import type { Translations } from "../shared/i18n/createTranslations";
 import { TranslationContext } from "../shared/i18n/useTranslation";
@@ -18,35 +17,10 @@ export const mountHome = (
   mount: HTMLElement,
   status: StatusStores,
   translations: Translations,
-  updates: LauncherUpdateNotice,
 ) => {
-  const document = mount.ownerDocument;
-  // Apply the shell appearance before any Home focus geometry is measured.
-  const syncShell = () => {
-    const values = settings.getSnapshot();
-    document.body.classList.toggle("glass-ui", values.glassSettings);
-  };
-  syncShell();
-  const unsubscribeShell = settings.subscribe(syncShell);
   const inventory = createHomeInventory(runtime, settings, flushSync);
-  const rows = createRef<HTMLElement>();
   const environment = createHomeController(
-    {
-      runtime,
-      settings,
-      inventory,
-      status,
-      updates,
-      rows,
-      appItems: createRef<HTMLDivElement>(),
-      appViewport: createRef<HTMLDivElement>(),
-      continueItems: createRef<HTMLDivElement>(),
-      continueViewport: createRef<HTMLDivElement>(),
-      nodes: new Map(),
-      showMoveInstructions: () => runtime.toast(translations.getSnapshot().t("home.moveInstructions")),
-      describe: (app) => runtime.tiles.describe(app),
-      columns: (values) => values.homeCardColumns,
-    },
+    { runtime, settings, inventory, status, rows: createRef<HTMLElement>(), nodes: new Map() },
     flushSync,
   );
   const refresh = () => {
@@ -58,8 +32,6 @@ export const mountHome = (
     environment.bridge.blur();
     render(null, mount);
     inventory.dispose();
-    unsubscribeShell();
-    document.body.classList.remove("glass-ui");
   };
   try {
     render(
